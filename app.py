@@ -22,13 +22,19 @@ def dummy_optimize(budget, n_new, n_extend, n_veh):
     ]
     return {"new_hospitals": new_hospitals, "mobile_routes": mobile_routes}
 
+if "result" not in st.session_state:
+    st.session_state["result"] = None
+
 if st.sidebar.button("최적 배치 실행"):
-    result = dummy_optimize(budget, n_new, n_extend, n_veh)
+    st.session_state["result"] = dummy_optimize(budget, n_new, n_extend, n_veh)
+
+if st.session_state["result"] is not None:
+    result = st.session_state["result"]
     m = folium.Map(location=[37.45, 126.70], zoom_start=11)
     for site in result["new_hospitals"]:
         folium.Marker(site, icon=folium.Icon(color="red"), popup="신규 병원 추천지").add_to(m)
     for route in result["mobile_routes"]:
         folium.PolyLine(route, color="blue").add_to(m)
-    st_folium(m, width=700)
+    st_folium(m, width=700, key="result_map")
 else:
     st.info("왼쪽에서 값을 입력하고 '최적 배치 실행' 버튼을 눌러보세요.")
