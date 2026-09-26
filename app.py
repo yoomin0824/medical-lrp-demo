@@ -204,7 +204,7 @@ if st.session_state["result"] is not None:
         st.markdown(f'<div class="metric-card"><div class="num">{len(sol["routes"])}</div><div class="label">🚑 이동의료 경로</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    m = folium.Map(location=[37.45, 126.7], zoom_start=10, tiles="CartoDB positron")
+    m = folium.Map(location=[37.45, 126.7], zoom_start=10)
     for i, v in enumerate(sol["new_sites"]):
         if v == 1:
             row = candidates.iloc[i]
