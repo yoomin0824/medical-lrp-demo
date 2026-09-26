@@ -5,7 +5,40 @@ import random
 import folium
 from streamlit_folium import st_folium
 
-st.title("의료 취약지 최적 배치 데모 (인천 소아과)")
+st.set_page_config(page_title="인천 소아과 의료 취약지 최적 배치", page_icon="🏥", layout="wide")
+
+st.markdown("""
+<style>
+    .main { background-color: #f7fafc; }
+    .header-banner {
+        background: linear-gradient(90deg, #1b68cf, #4a90d9);
+        padding: 32px 40px; border-radius: 16px; margin-bottom: 24px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .header-banner h1 { color: white; margin: 0; font-size: 28px; }
+    .header-banner p { color: #dbeafe; margin: 8px 0 0 0; font-size: 15px; }
+    .metric-card {
+        background: white; border-radius: 12px; padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center;
+        border-top: 4px solid #1b68cf;
+    }
+    .metric-card .num { font-size: 32px; font-weight: 700; color: #1b68cf; }
+    .metric-card .label { font-size: 14px; color: #64748b; margin-top: 4px; }
+    section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
+    div.stButton > button {
+        background-color: #1b68cf; color: white; border-radius: 8px;
+        border: none; padding: 10px 0; font-weight: 600; width: 100%;
+    }
+    div.stButton > button:hover { background-color: #144e9c; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="header-banner">
+    <h1>🏥 인천광역시 소아과 의료 취약지 최적 배치 데모</h1>
+    <p>예산과 자원 조건을 입력하면, LRP 최적화로 신규 병원·진료연장·이동의료 배치를 계산합니다</p>
+</div>
+""", unsafe_allow_html=True)
 
 @st.cache_data
 def load_data():
@@ -23,16 +56,8 @@ MOBILE_WEEKLY_HOURS = 8
 COST_PER_NEW_HOSPITAL = 100
 COST_PER_EXTENSION = 20
 COST_PER_VEHICLE = 30
-MAX_ROUTE_RADIUS_KM = 30  # 이동의료차 한 경로 안 정류장들은 이 거리 이내로 제한
 
 def haversine_matrix(lat1, lon1, lat2, lon2):
-    R = 6371
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    a = np.sin(dlat/2)**2 + np.cos(lat1)*np.cos(lat2)*np.sin(dlon/2)**2
-    return 2 * R * np.arcsin(np.sqrt(a))
-
-def haversine_point(lat1, lon1, lat2, lon2):
     R = 6371
     lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
     dlat, dlon = lat2 - lat1, lon2 - lon1
@@ -81,6 +106,14 @@ def apply_routes_bonus(acc, routes):
 baseline_acc = recompute_accessibility([0]*N_CANDIDATES, [0]*N_HOSPITALS)
 threshold = np.quantile(baseline_acc, 0.3)
 vulnerable_idx = [i for i in range(len(gdf)) if baseline_acc[i] <= threshold and demand[i] > 0]
+
+MAX_ROUTE_RADIUS_KM = 30
+def haversine_point(lat1, lon1, lat2, lon2):
+    R = 6371
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = np.sin(dlat/2)**2 + np.cos(lat1)*np.cos(lat2)*np.sin(dlon/2)**2
+    return 2 * R * np.arcsin(np.sqrt(a))
 
 def make_route_near(start_idx, max_stops):
     start_lat = candidates.iloc[start_idx]["lat"]
@@ -145,32 +178,15 @@ def run_ga(budget, max_new, max_extend, n_vehicles, pop_size=30, n_gen=25):
     fits = [evaluate(s, budget, max_new, max_extend) for s in pop]
     return pop[fits.index(max(fits))]
 
-budget = st.sidebar.slider("예산 (억원)", 500, 12000, 3000, step=500)
-n_new = st.sidebar.number_input("신규 병원 수 (최대)", 0, N_CANDIDATES, 5)
-n_extend = st.sidebar.number_input("진료 연장 가능 병원 수 (최대)", 0, N_HOSPITALS, 10)
-n_veh = st.sidebar.number_input("이동의료차 대수", 0, 5, 2)
+with st.sidebar:
+    st.markdown("### ⚙️ 배치 조건 설정")
+    budget = st.slider("💰 예산 (억원)", 500, 12000, 3000, step=500)
+    n_new = st.number_input("🏥 신규 병원 수 (최대)", 0, N_CANDIDATES, 5)
+    n_extend = st.number_input("🕐 진료 연장 가능 병원 수 (최대)", 0, N_HOSPITALS, 10)
+    n_veh = st.number_input("🚑 이동의료차 대수", 0, 5, 2)
+    run_btn = st.button("최적 배치 실행")
 
 if "result" not in st.session_state:
     st.session_state["result"] = None
 
-if st.sidebar.button("최적 배치 실행"):
-    with st.spinner("계산 중... (20~40초 소요)"):
-        st.session_state["result"] = run_ga(budget, n_new, n_extend, n_veh)
-
-if st.session_state["result"] is not None:
-    sol = st.session_state["result"]
-    m = folium.Map(location=[37.45, 126.7], zoom_start=10)
-    for i, v in enumerate(sol["new_sites"]):
-        if v == 1:
-            row = candidates.iloc[i]
-            folium.Marker([row["lat"], row["lon"]], icon=folium.Icon(color="red"), popup="신규 병원").add_to(m)
-    for route in sol["routes"]:
-        pts = [[candidates.iloc[s]["lat"], candidates.iloc[s]["lon"]] for s in route]
-        if len(pts) > 1:
-            folium.PolyLine(pts, color="blue").add_to(m)
-        for p in pts:
-            folium.CircleMarker(p, radius=4, color="blue", fill=True, popup="이동의료 방문지").add_to(m)
-    st.write(f"신규 병원 {sum(sol['new_sites'])}곳, 연장진료 {sum(sol['extend'])}곳, 이동경로 {len(sol['routes'])}개")
-    st_folium(m, width=700, key="result_map")
-else:
-    st.info("왼쪽에서 값을 입력하고 '최적 배치 실행' 버튼을 눌러보세요.")
+if
