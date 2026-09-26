@@ -189,4 +189,32 @@ with st.sidebar:
 if "result" not in st.session_state:
     st.session_state["result"] = None
 
-if
+if run_btn:
+    with st.spinner("최적 배치를 계산하는 중입니다... (20~40초 소요)"):
+        st.session_state["result"] = run_ga(budget, n_new, n_extend, n_veh)
+
+if st.session_state["result"] is not None:
+    sol = st.session_state["result"]
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(f'<div class="metric-card"><div class="num">{sum(sol["new_sites"])}</div><div class="label">🏥 신규 병원</div></div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'<div class="metric-card"><div class="num">{sum(sol["extend"])}</div><div class="label">🕐 연장진료 병원</div></div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown(f'<div class="metric-card"><div class="num">{len(sol["routes"])}</div><div class="label">🚑 이동의료 경로</div></div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    m = folium.Map(location=[37.45, 126.7], zoom_start=10, tiles="CartoDB positron")
+    for i, v in enumerate(sol["new_sites"]):
+        if v == 1:
+            row = candidates.iloc[i]
+            folium.Marker([row["lat"], row["lon"]], icon=folium.Icon(color="red", icon="plus-sign"), popup="신규 병원").add_to(m)
+    for route in sol["routes"]:
+        pts = [[candidates.iloc[s]["lat"], candidates.iloc[s]["lon"]] for s in route]
+        if len(pts) > 1:
+            folium.PolyLine(pts, color="#1b68cf", weight=3).add_to(m)
+        for p in pts:
+            folium.CircleMarker(p, radius=5, color="#1b68cf", fill=True, fill_opacity=0.8, popup="이동의료 방문지").add_to(m)
+    st_folium(m, width=1100, height=500)
+else:
+    st.info("👈 왼쪽에서 조건을 입력하고 **'최적 배치 실행'** 버튼을 눌러보세요.")
