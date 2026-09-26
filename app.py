@@ -23,8 +23,16 @@ MOBILE_WEEKLY_HOURS = 8
 COST_PER_NEW_HOSPITAL = 100
 COST_PER_EXTENSION = 20
 COST_PER_VEHICLE = 30
+MAX_ROUTE_RADIUS_KM = 30  # 이동의료차 한 경로 안 정류장들은 이 거리 이내로 제한
 
 def haversine_matrix(lat1, lon1, lat2, lon2):
+    R = 6371
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = np.sin(dlat/2)**2 + np.cos(lat1)*np.cos(lat2)*np.sin(dlon/2)**2
+    return 2 * R * np.arcsin(np.sqrt(a))
+
+def haversine_point(lat1, lon1, lat2, lon2):
     R = 6371
     lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
     dlat, dlon = lat2 - lat1, lon2 - lon1
@@ -74,10 +82,21 @@ baseline_acc = recompute_accessibility([0]*N_CANDIDATES, [0]*N_HOSPITALS)
 threshold = np.quantile(baseline_acc, 0.3)
 vulnerable_idx = [i for i in range(len(gdf)) if baseline_acc[i] <= threshold and demand[i] > 0]
 
+def make_route_near(start_idx, max_stops):
+    start_lat = candidates.iloc[start_idx]["lat"]
+    start_lon = candidates.iloc[start_idx]["lon"]
+    nearby = [i for i in range(N_CANDIDATES)
+              if haversine_point(start_lat, start_lon, candidates.iloc[i]["lat"], candidates.iloc[i]["lon"]) <= MAX_ROUTE_RADIUS_KM]
+    n_stops = min(max_stops, len(nearby))
+    return random.sample(nearby, n_stops) if n_stops > 0 else [start_idx]
+
 def make_random_solution(max_new, max_extend, n_vehicles):
     new_sites = [1 if random.random() < 0.15 else 0 for _ in range(N_CANDIDATES)]
     extend = [1 if random.random() < 0.15 else 0 for _ in range(N_HOSPITALS)]
-    routes = [random.sample(range(N_CANDIDATES), min(random.randint(1,4), N_CANDIDATES)) for _ in range(n_vehicles)]
+    routes = []
+    for _ in range(n_vehicles):
+        start = random.randrange(N_CANDIDATES)
+        routes.append(make_route_near(start, random.randint(1,4)))
     return {"new_sites": new_sites, "extend": extend, "routes": routes}
 
 def repair(sol, budget, max_new, max_extend):
