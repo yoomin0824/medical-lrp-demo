@@ -24,10 +24,49 @@ st.markdown("""
     }
     .metric-card .num { font-size: 32px; font-weight: 700; color: #1b68cf; }
     .metric-card .label { font-size: 14px; color: #64748b; margin-top: 4px; }
-    section[data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
+
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+    }
+    section[data-testid="stSidebar"] .block-container { padding-top: 24px; }
+
+    .sidebar-header {
+        background: linear-gradient(135deg, #1b68cf, #2f7fe0);
+        border-radius: 14px; padding: 18px 16px; margin-bottom: 20px;
+        box-shadow: 0 3px 10px rgba(27,104,207,0.25);
+    }
+    .sidebar-header h3 { color: white; margin: 0; font-size: 17px; }
+    .sidebar-header p { color: #dbeafe; margin: 6px 0 0 0; font-size: 12.5px; line-height: 1.4; }
+
+    .input-card {
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 12px; padding: 14px 16px 6px 16px;
+        margin-bottom: 14px;
+    }
+    .input-card .input-title {
+        font-size: 13.5px; font-weight: 600; color: #1e293b; margin-bottom: 2px;
+    }
+    .input-card .input-caption {
+        font-size: 11.5px; color: #94a3b8; margin-bottom: 6px;
+    }
+
+    section[data-testid="stSidebar"] div[data-baseweb="slider"] > div > div > div {
+        background: #1b68cf !important;
+    }
+    section[data-testid="stSidebar"] div[data-baseweb="slider"] div[role="slider"] {
+        background-color: #1b68cf !important;
+        border-color: #1b68cf !important;
+    }
+
+    section[data-testid="stSidebar"] input[type="number"] {
+        border-radius: 8px !important;
+    }
+
     div.stButton > button {
         background-color: #1b68cf; color: white; border-radius: 8px;
         border: none; padding: 10px 0; font-weight: 600; width: 100%;
+        transition: background-color 0.2s ease;
     }
     div.stButton > button:hover { background-color: #144e9c; }
 </style>
@@ -179,12 +218,30 @@ def run_ga(budget, max_new, max_extend, n_vehicles, pop_size=30, n_gen=25):
     return pop[fits.index(max(fits))]
 
 with st.sidebar:
-    st.markdown("### ⚙️ 배치 조건 설정")
-    budget = st.slider("💰 예산 (억원)", 500, 12000, 3000, step=500)
-    n_new = st.number_input("🏥 신규 병원 수 (최대)", 0, N_CANDIDATES, 5)
-    n_extend = st.number_input("🕐 진료 연장 가능 병원 수 (최대)", 0, N_HOSPITALS, 10)
-    n_veh = st.number_input("🚑 이동의료차 대수", 0, 5, 2)
-    run_btn = st.button("최적 배치 실행")
+    st.markdown("""
+    <div class="sidebar-header">
+        <h3>⚙️ 배치 조건 설정</h3>
+        <p>예산과 자원 조건을 조절한 뒤 아래 버튼을 눌러 최적 배치를 계산하세요.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="input-card"><div class="input-title">💰 예산</div><div class="input-caption">억원 단위</div>', unsafe_allow_html=True)
+    budget = st.slider("예산", 500, 12000, 3000, step=500, label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="input-card"><div class="input-title">🏥 신규 병원 수</div><div class="input-caption">최대로 지을 수 있는 개수</div>', unsafe_allow_html=True)
+    n_new = st.number_input("신규 병원 수", 0, N_CANDIDATES, 5, label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="input-card"><div class="input-title">🕐 진료 연장 가능 병원 수</div><div class="input-caption">최대로 연장할 수 있는 개수</div>', unsafe_allow_html=True)
+    n_extend = st.number_input("진료 연장 가능 병원 수", 0, N_HOSPITALS, 10, label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="input-card"><div class="input-title">🚑 이동의료차 대수</div><div class="input-caption">투입할 차량 수</div>', unsafe_allow_html=True)
+    n_veh = st.number_input("이동의료차 대수", 0, 5, 2, label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    run_btn = st.button("🚀 최적 배치 실행")
 
 if "result" not in st.session_state:
     st.session_state["result"] = None
